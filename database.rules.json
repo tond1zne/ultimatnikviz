@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".read": true,
+        ".write": true,
+        "board": {
+          ".validate": "newData.hasChild('categories')"
+        }
+      }
+    }
+  }
+}
