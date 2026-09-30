@@ -75,6 +75,17 @@
   .panel-box .field{margin-top:14px;}
   .roomcode-display{font-family:'Space Mono',monospace;font-size:30px;letter-spacing:.12em;text-align:center;color:var(--gold);background:#0e0718;border:1px dashed var(--line);border-radius:12px;padding:14px;margin:10px 0;}
   .back-link{color:var(--muted);font-size:13px;cursor:pointer;background:none;border:none;text-decoration:underline;padding:4px 0;}
+  .check-row{display:flex;align-items:center;gap:9px;}
+  .check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--coral);flex:none;}
+  .check-row label{text-transform:none;font-size:13.5px;font-weight:600;color:var(--text);letter-spacing:0;}
+  .lobby-list{display:flex;flex-direction:column;gap:10px;width:100%;max-width:460px;}
+  .room-card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 16px;cursor:pointer;text-align:left;transition:border-color .15s, transform .15s;animation:popIn .25s cubic-bezier(.34,1.56,.64,1);}
+  .room-card:hover{border-color:var(--coral);transform:translateY(-2px);}
+  .room-card-title{font-weight:800;font-size:15px;}
+  .room-card-sub{color:var(--muted);font-size:12px;margin-top:2px;}
+  .lobby-scroll{max-height:320px;overflow-y:auto;width:100%;display:flex;justify-content:center;}
+  .or-div{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;width:100%;max-width:380px;margin:6px 0;}
+  .or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--line);}
 
   /* ---------- WAITING ROOM / LOBBY OF A GAME ---------- */
   .waiting-wrap{max-width:640px;margin:0 auto;text-align:center;}
@@ -195,16 +206,27 @@
     <div class="panel-box">
       <label>Název místnosti (nepovinné)</label>
       <div class="field"><input type="text" id="createNameInput" placeholder="např. Petrova oslava"></div>
+      <div class="field check-row">
+        <input type="checkbox" id="createLockedCheck" onchange="toggleCreatePassField()">
+        <label for="createLockedCheck">Zamknout heslem</label>
+      </div>
+      <div class="field hidden" id="createPassField">
+        <label>Heslo do místnosti</label>
+        <input type="password" id="createPassInput" placeholder="Heslo, které řekneš hráčům">
+      </div>
       <button class="primary" style="width:100%;margin-top:18px;" onclick="doCreateRoom()">Vytvořit hru 🎉</button>
-      <p class="subtle" style="margin-top:10px;">Vygenerujeme unikátní kód, který pošleš ostatním hráčům.</p>
+      <p class="subtle" style="margin-top:10px;">Dostaneš kód i odkaz, který pošleš ostatním. Hra se objeví i v seznamu na "Připojit se".</p>
     </div>
   </div>
 
   <!-- STEP 1c: join panel -->
   <div id="view-join" class="center-stage hidden">
     <button class="back-link" onclick="backToEntry()">← zpět</button>
+    <h2 class="display" style="font-size:28px;">Otevřené hry</h2>
+    <div class="lobby-scroll"><div class="lobby-list" id="lobbyList"></div></div>
+    <div class="or-div">nebo</div>
     <div class="panel-box">
-      <label>Kód místnosti</label>
+      <label>Zadej kód ručně</label>
       <div class="field"><input type="text" id="joinCodeInput" placeholder="např. FOX42" style="text-align:center;font-family:'Space Mono',monospace;font-size:20px;letter-spacing:.1em;text-transform:uppercase;"></div>
       <button class="primary" style="width:100%;margin-top:18px;" onclick="doJoinRoom()">Připojit se</button>
       <p id="joinError" class="subtle hidden" style="color:var(--coral2);margin-top:10px;"></p>
@@ -248,8 +270,11 @@
 
   <!-- STEP 3a: waiting room / lobby for a specific game -->
   <div id="view-waiting" class="hidden waiting-wrap">
-    <div class="room-tag mono">🔑 <span id="waitRoomCode"></span> <button class="icon ghost small" style="margin-left:4px;" onclick="copyRoomCode()" title="Kopírovat kód">📋</button></div>
-    <h2 class="display" style="font-size:30px;">Čeká se v lobby…</h2>
+    <div class="room-tag mono">🔑 <span id="waitRoomCode"></span>
+      <button class="icon ghost small" style="margin-left:4px;" onclick="copyRoomCode()" title="Kopírovat kód">📋</button>
+      <button class="icon ghost small" onclick="copyInviteLink()" title="Kopírovat pozvánku (odkaz)">🔗</button>
+    </div>
+    <h2 class="display" style="font-size:30px;" id="waitTitle">Čeká se v lobby…</h2>
     <p class="subtle" id="waitingSub">Až budou všichni připojení, moderátor spustí hru.</p>
     <div class="player-list" id="waitPlayerList"></div>
     <div id="modStartArea" class="hidden">
@@ -345,6 +370,27 @@ function randomRoomCode(){
   return a+n;
 }
 
+/* --- room code in the URL, so refreshing / sharing a link keeps context --- */
+function setRoomInUrl(code){
+  try{
+    const url = new URL(location.href);
+    url.searchParams.set('room', code);
+    history.replaceState(null, '', url.toString());
+  }catch(e){}
+}
+function getRoomFromUrl(){
+  try{ return new URLSearchParams(location.search).get('room'); }catch(e){ return null; }
+}
+function inviteLinkFor(code){
+  const url = new URL(location.href);
+  url.searchParams.set('room', code);
+  return url.toString();
+}
+function copyInviteLink(){
+  navigator.clipboard && navigator.clipboard.writeText(inviteLinkFor(ROOM));
+  toast('Odkaz na hru zkopírován 🔗');
+}
+
 function defaultBoard(){
   const catNames=['Historie','Věda','Zeměpis','Film & TV','Sport'];
   const values=[100,200,300,400,500];
@@ -353,7 +399,16 @@ function defaultBoard(){
   }))};
 }
 function defaultLive(){ return { phase:'lobby', catIdx:null, qIdx:null, buzzedName:null, buzzedId:null, buzzTime:0, excluded:[] }; }
-function defaultMeta(){ return { createdAt: Date.now(), status:'lobby' }; }
+function defaultMeta(opts){
+  opts = opts || {};
+  return {
+    createdAt: Date.now(),
+    status:'lobby',
+    label: opts.label || '',
+    locked: !!opts.locked,
+    password: opts.locked ? (opts.password || '') : null
+  };
+}
 
 let board=null, live=defaultLive(), players={}, meta=defaultMeta();
 let role=null, myName='', myId='';
@@ -365,12 +420,15 @@ async function roomExists(code){
   const snap = await db.ref(`rooms/${code}/meta`).once('value');
   return snap.exists();
 }
-async function createRoomInDb(code){
-  await db.ref(`rooms/${code}`).set({ meta: defaultMeta(), board: defaultBoard(), live: defaultLive(), players: {} });
+async function createRoomInDb(code, opts){
+  await db.ref(`rooms/${code}`).set({ meta: defaultMeta(opts), board: defaultBoard(), live: defaultLive(), players: {} });
 }
 
 let prevBuzzedId=null;
+let listenersAttached=false;
 function attachListeners(){
+  if(listenersAttached) return; // avoid duplicate subscriptions when switching role without leaving the room
+  listenersAttached=true;
   db.ref(pBoard()).on('value', snap=>{
     board = snap.val() || defaultBoard();
     if(role!=='admin'){ renderBoard(); renderOverlay(); }
@@ -387,7 +445,12 @@ function attachListeners(){
   });
   db.ref(pMeta()).on('value', snap=>{
     meta = snap.val() || defaultMeta();
-    if(role!=='admin') switchGameView();
+    if(role!=='admin'){
+      switchGameView();
+      renderBoard();
+      renderOverlay();
+      renderWaiting();
+    }
   });
 }
 
@@ -399,36 +462,94 @@ function showView(id){
     document.getElementById(v).classList.toggle('hidden', v!==id);
   });
 }
-function showCreatePanel(){ showView('view-create'); document.getElementById('createNameInput').focus(); }
-function showJoinPanel(){ showView('view-join'); document.getElementById('joinCodeInput').focus(); }
-function backToEntry(){ showView('view-entry'); }
+function showCreatePanel(){
+  showView('view-create');
+  document.getElementById('createNameInput').focus();
+}
+function showJoinPanel(){
+  showView('view-join');
+  document.getElementById('joinCodeInput').focus();
+  document.getElementById('joinError').classList.add('hidden');
+  attachLobbyListListener();
+}
+function backToEntry(){ detachLobbyListListener(); showView('view-entry'); }
+function toggleCreatePassField(){
+  document.getElementById('createPassField').classList.toggle('hidden', !document.getElementById('createLockedCheck').checked);
+}
 
 async function doCreateRoom(){
   const ok = await firebaseReady; if(!ok) return;
   const label = document.getElementById('createNameInput').value.trim();
-  let code = label ? keyify(label).toUpperCase().replace(/_/g,'').slice(0,16) || randomRoomCode() : randomRoomCode();
+  const locked = document.getElementById('createLockedCheck').checked;
+  const password = document.getElementById('createPassInput').value;
+  if(locked && !password){ toast('Zadej heslo, nebo zámek vypni.'); return; }
+  let code = randomRoomCode();
   let tries=0;
-  while(await roomExists(code) && tries<5){ code = randomRoomCode(); tries++; }
-  await createRoomInDb(code);
+  while(await roomExists(code) && tries<6){ code = randomRoomCode(); tries++; }
+  await createRoomInDb(code, { label, locked, password });
   ROOM = code;
+  setRoomInUrl(code);
   enterRoomRoleSelect();
 }
 
-async function doJoinRoom(){
+function doJoinRoom(){
+  attemptJoin(document.getElementById('joinCodeInput').value);
+}
+
+// Shared join logic used by the manual code field AND by clicking a room in the live lobby list.
+async function attemptJoin(codeRaw){
   const ok = await firebaseReady; if(!ok) return;
-  const raw = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  const code = (codeRaw||'').trim().toUpperCase();
   const err = document.getElementById('joinError');
-  if(!raw){ err.textContent='Zadej kód místnosti.'; err.classList.remove('hidden'); return; }
-  const exists = await roomExists(raw);
-  if(!exists){ err.textContent='Místnost s tímhle kódem neexistuje. Zkontroluj kód.'; err.classList.remove('hidden'); return; }
+  if(!code){ err.textContent='Zadej kód místnosti.'; err.classList.remove('hidden'); return; }
+  const snap = await db.ref(`rooms/${code}/meta`).once('value');
+  if(!snap.exists()){ err.textContent='Místnost s tímhle kódem neexistuje. Zkontroluj kód.'; err.classList.remove('hidden'); return; }
+  const m = snap.val();
+  if(m.locked){
+    const pass = prompt(`Hra "${m.label||code}" je zamčená heslem. Zadej ho:`);
+    if(pass===null) return;
+    if(pass !== m.password){ err.textContent='Špatné heslo pro tuhle místnost.'; err.classList.remove('hidden'); return; }
+  }
   err.classList.add('hidden');
-  ROOM = raw;
+  detachLobbyListListener();
+  ROOM = code;
+  setRoomInUrl(code);
   enterRoomRoleSelect();
 }
 
 function enterRoomRoleSelect(){
   document.getElementById('roleRoomCode').textContent = ROOM;
   showView('view-role');
+}
+
+/* --- live "open games" list shown on the Join screen --- */
+let lobbyListRef=null;
+async function attachLobbyListListener(){
+  const ok = await firebaseReady; if(!ok) return;
+  detachLobbyListListener();
+  lobbyListRef = db.ref('rooms');
+  lobbyListRef.on('value', snap=>{ renderLobbyList(snap.val() || {}); });
+}
+function detachLobbyListListener(){ if(lobbyListRef){ lobbyListRef.off(); lobbyListRef=null; } }
+function pluralHraci(n){ if(n===1) return 'hráč'; if(n>=2 && n<=4) return 'hráči'; return 'hráčů'; }
+function renderLobbyList(all){
+  const el = document.getElementById('lobbyList'); if(!el) return;
+  const rooms = Object.entries(all)
+    .filter(([code,r])=>r && r.meta)
+    .map(([code,r])=>({ code, meta:r.meta, playerCount: Object.keys(r.players||{}).length }))
+    .sort((a,b)=>(b.meta.createdAt||0)-(a.meta.createdAt||0))
+    .slice(0,30);
+  if(rooms.length===0){ el.innerHTML='<div class="empty-note">Zatím žádné otevřené hry. Založ novou! ✨</div>'; return; }
+  el.innerHTML = rooms.map(r=>{
+    const statusLabel = r.meta.status==='playing' ? '▶ hra běží' : '⏳ lobby';
+    return `<div class="room-card" onclick="attemptJoin('${r.code}')">
+      <div class="room-card-main">
+        <div class="room-card-title">${escapeHtml(r.meta.label || r.code)} ${r.meta.locked?'🔒':''}</div>
+        <div class="room-card-sub mono">${r.code} · ${r.playerCount} ${pluralHraci(r.playerCount)} · ${statusLabel}</div>
+      </div>
+      <button class="small gold">Připojit</button>
+    </div>`;
+  }).join('');
 }
 
 function chooseRole(r){
@@ -503,10 +624,30 @@ function registerPlayer(){
 
 function renderTopActions(){
   const el=document.getElementById('topActions'); el.innerHTML='';
-  if(role==='mod') el.appendChild(mkBtn('🔁 Nová hra', resetGame, 'ghost small'));
-  el.appendChild(mkBtn('⏏ Odejít', ()=>location.reload(), 'ghost small'));
+  el.appendChild(mkBtn('🔁 Změnit roli', changeRole, 'ghost small'));
+  if(role==='mod') el.appendChild(mkBtn('🆕 Nová hra', resetGame, 'ghost small'));
+  el.appendChild(mkBtn('⏏ Opustit hru', leaveRoom, 'ghost small'));
 }
 function mkBtn(label,fn,cls){ const b=document.createElement('button'); b.textContent=label; b.className=cls||''; b.onclick=fn; return b; }
+
+// Stay in the SAME room, just go back to the mod/player/admin picker.
+function changeRole(){
+  if(role==='player' && myId){
+    db.ref(`${pPlayers()}/${myId}`).remove().catch(()=>{});
+    document.removeEventListener('keydown', onKeydown);
+  }
+  role=null; myName=''; myId='';
+  document.getElementById('roleBadge').classList.add('hidden');
+  document.getElementById('topActions').innerHTML='';
+  document.getElementById('nameEntry').classList.add('hidden');
+  document.getElementById('adminPassEntry').classList.add('hidden');
+  document.getElementById('nameInput').value='';
+  document.getElementById('adminPassInput').value='';
+  document.getElementById('roleRoomCode').textContent = ROOM;
+  showView('view-role');
+}
+// Leave the room entirely, back to the landing page.
+function leaveRoom(){ location.href = location.pathname; }
 
 async function resetGame(){
   if(!confirm('Opravdu resetovat skóre, odemknout dlaždice a vrátit se do lobby?')) return;
@@ -538,6 +679,8 @@ function colorFor(id){ let h=0; for(const c of id) h=(h*31+c.charCodeAt(0))>>>0;
 function renderWaiting(){
   if(role==='admin') return;
   const codeEl=document.getElementById('waitRoomCode'); if(codeEl) codeEl.textContent=ROOM;
+  const titleEl=document.getElementById('waitTitle');
+  if(titleEl) titleEl.textContent = meta && meta.label ? meta.label : 'Čeká se v lobby…';
   const list = document.getElementById('waitPlayerList');
   if(!list) return;
   const entries = Object.entries(players||{});
@@ -865,6 +1008,26 @@ async function saveAdmin(){
    ========================================================================== */
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+
+/* ==========================================================================
+   11) OPEN VIA INVITE LINK — ?room=CODE skips straight to the role picker
+   ========================================================================== */
+(async function tryAutoJoinFromUrl(){
+  const codeRaw = getRoomFromUrl();
+  if(!codeRaw) return;
+  const ok = await firebaseReady; if(!ok) return;
+  const code = codeRaw.trim().toUpperCase();
+  const snap = await db.ref(`rooms/${code}/meta`).once('value');
+  if(!snap.exists()){ toast('Místnost z odkazu už neexistuje.'); return; }
+  const m = snap.val();
+  if(m.locked){
+    const pass = prompt(`Hra "${m.label||code}" je zamčená heslem. Zadej ho pro připojení:`);
+    if(pass===null) return;
+    if(pass !== m.password){ toast('Špatné heslo — zkus odkaz znovu.'); return; }
+  }
+  ROOM = code;
+  enterRoomRoleSelect();
+})();
 </script>
 </body>
 </html>

@@ -4,6 +4,18 @@ Jeopardy-style kvíz na jeden Vercel free plán. Statický `index.html` +
 dvě malé serverless funkce (`/api/config`, `/api/admin-login`), realtime
 synchronizace přes Firebase Realtime Database (taky free tier).
 
+> **Máš už starší verzi nasazenou?** Nezapomeň ve Firebase Console →
+> Realtime Database → Rules přepsat pravidla obsahem aktuálního
+> `database.rules.json` a publikovat je znovu — bez toho nebude fungovat
+> seznam otevřených her na "Připojit se" (potřebuje číst celý strom
+> `rooms`, ne jen jednu konkrétní místnost jako dřív).
+
+## Opravená chyba
+
+Nově uložené otázky se po spuštění hry chvílemi nezobrazovaly — hrací
+plán se nepřekreslil ve chvíli, kdy moderátor klikl "Spustit hru", i
+když data v databázi byla správně. Opraveno.
+
 ## Co je nového oproti staré verzi
 
 - **Firebase config i admin heslo jsou v env proměnných** na Vercelu, ne
@@ -26,6 +38,23 @@ synchronizace přes Firebase Realtime Database (taky free tier).
 - **Nový vizuál**: tmavě fialové pozadí s korálovo-zlatým akcentem,
   animované "bubliny" na pozadí, plynulejší přechody, pulzující BZZ!
   tlačítko, konfety při správné odpovědi, popup animace hráčů v lobby.
+- **Kód hry funguje i jako odkaz**: po založení/připojení se kód přidá do
+  URL (`...?room=FOX42`). Stačí poslat kamarádům rovnou tenhle odkaz a
+  otevře se jim to přímo na výběru role v té konkrétní hře — nemusí nic
+  opisovat.
+- **"Připojit se" ukazuje živý seznam otevřených her**: kdokoliv vidí
+  všechny rozehrané/čekající místnosti (název, kód, počet hráčů, jestli
+  je zamčená) a klikne na tu svoji, místo aby musel přesně opisovat kód.
+  Ruční zadání kódu pořád funguje jako záloha.
+- **Volitelné heslo místnosti při zakládání**: zaškrtávátko "Zamknout
+  heslem" — bez zaškrtnutí je místnost otevřená pro kohokoliv se zná
+  kódem/odkazem, se zaškrtnutím se při připojování (ať už z odkazu, ze
+  seznamu, nebo ručním kódem) vyžádá heslo. Tohle je jiné heslo než
+  `ADMIN_PASSWORD` — to chrání roli Admina napříč všemi místnostmi, tohle
+  chrání konkrétní jednu hru před cizími hráči.
+- **"Změnit roli" už nevyhazuje z místnosti**: vrátí tě na výběr
+  moderátor/hráč/admin ve stejné hře, místo aby tě to poslalo zpátky na
+  úvodní obrazovku a nutilo znovu zadávat kód.
 
 ## Nasazení na Vercel (zdarma)
 
@@ -83,8 +112,11 @@ database.rules.json   doporučená pravidla pro Firebase Realtime DB
 
 ## Poznámka k bezpečnosti
 
-Firebase pravidla v `database.rules.json` jsou záměrně jednoduchá
-(kdokoliv se znalostí kódu místnosti může číst/psát) — to stačí na
-rodinný/kamarádský kvíz. Pro veřejnější použití by šlo přidat Firebase
-Anonymous Auth a omezit zápis jen na ověřené uživatele, ale to už je nad
-rámec "rychle a zadarmo".
+Firebase pravidla v `database.rules.json` jsou záměrně jednoduchá —
+databáze je čitelná/zapisovatelná pro kohokoliv (potřeba i pro seznam
+otevřených her). To stačí na rodinný/kamarádský kvíz, ale znamená to
+taky, že heslo místnosti je technicky dohledatelné přímo v databázi,
+podobně jako `ADMIN_PASSWORD` dřív bylo vidět v HTML — spíš zámek na
+dveřích bytu než na trezoru. Pro veřejnější použití by šlo přidat
+Firebase Anonymous Auth a omezit zápis jen na ověřené uživatele, ale to
+už je nad rámec "rychle a zadarmo".
